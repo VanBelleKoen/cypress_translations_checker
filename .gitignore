@@ -1,0 +1,14 @@
+node_modules/
+cypress/videos/
+cypress/screenshots/
+cypress/downloads/
+.DS_Store
+*.log
+
+# Test files (not needed in published package)
+test-page.html
+dashboard.html
+clean-page.html
+
+# Package files
+*.tgz
