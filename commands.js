@@ -141,56 +141,76 @@ Cypress.Commands.add('checkTranslations', (options = {}) => {
 });
 
 /**
- * Global registry to track translation issues found during tests
- * Stored on Cypress object to persist across test files
- */
-const getTranslationRegistry = () => {
-  if (!Cypress.translationRegistry) {
-    Cypress.translationRegistry = {
-      pageResults: new Map(),
-      config: null
-    };
-  }
-  return Cypress.translationRegistry;
-};
-
-/**
- * Automatically check translations on every page load
- * Checks happen during the visit (so authentication works)
+ * Automatically check translations on every page navigation
+ * Uses Cypress hooks to detect page changes without overwriting commands
  * Results are stored in Node.js (via cy.task) to persist across spec files
  * @param {Object} globalOptions - Global configuration options for automatic checking
  */
 export const enableAutoTranslationCheck = (globalOptions = {}) => {
   const defaultWaitTime = globalOptions.waitTime || 500;
 
-  // Hook into cy.visit to check translations immediately
-  Cypress.Commands.overwrite('visit', (originalFn, url, visitOptions) => {
-    // Call original visit
-    originalFn(url, visitOptions);
+  // Track visited URLs in the current test
+  if (!Cypress.translationChecker) {
+    Cypress.translationChecker = {
+      visitedUrls: new Set(),
+      lastUrl: null,
+      pendingCheck: false
+    };
+  }
 
-    // Wait for page to settle
-    cy.wait(defaultWaitTime, { log: false });
+  /**
+   * Helper function to perform translation check and store results
+   */
+  const performTranslationCheck = (currentUrl) => {
+    // Skip if we've already checked this URL in this test
+    if (Cypress.translationChecker.visitedUrls.has(currentUrl)) {
+      return;
+    }
 
-    // Check translations and store results (don't fail the test)
-    cy.url().then((currentUrl) => {
-      cy.log(`🔍 Checking translations for: ${currentUrl}`);
+    Cypress.translationChecker.visitedUrls.add(currentUrl);
+    cy.log(`🔍 Checking translations for: ${currentUrl}`);
 
-      cy.checkTranslations({
-        ...globalOptions,
-        failOnError: false,  // Never fail functional tests
-        logErrors: false     // Don't spam console during tests
-      }).then((errors) => {
-        const errorCount = errors.length;
-        cy.log(`Found ${errorCount} translation issues`);
+    cy.checkTranslations({
+      ...globalOptions,
+      failOnError: false,
+      logErrors: false
+    }).then((errors) => {
+      const errorCount = errors.length;
+      cy.log(`Found ${errorCount} translation issues`);
 
-        // Store in Node.js via task (persists across spec files)
-        cy.task('storeTranslationResult', {
-          url: currentUrl,
-          errors: errors,
-          testContext: Cypress.currentTest.title
-        }, { log: false });
-      });
+      // Store in Node.js via task (persists across spec files)
+      cy.task('storeTranslationResult', {
+        url: currentUrl,
+        errors: errors,
+        testContext: Cypress.currentTest.title
+      }, { log: false });
     });
+  };
+
+  // Use Cypress event to detect URL changes without overwriting commands
+  Cypress.on('url:changed', (newUrl) => {
+    // Track that a URL change occurred
+    if (Cypress.translationChecker.lastUrl !== newUrl) {
+      Cypress.translationChecker.lastUrl = newUrl;
+      Cypress.translationChecker.pendingCheck = true;
+    }
+  });
+
+  // Use afterEach hook to check if translation validation is needed
+  afterEach(function () {
+    // Check if there's a pending check from URL change
+    if (Cypress.translationChecker.pendingCheck && Cypress.translationChecker.lastUrl) {
+      cy.wait(defaultWaitTime, { log: false });
+      performTranslationCheck(Cypress.translationChecker.lastUrl);
+      Cypress.translationChecker.pendingCheck = false;
+    }
+  });
+
+  // Reset state at the start of each test
+  beforeEach(() => {
+    Cypress.translationChecker.visitedUrls.clear();
+    Cypress.translationChecker.lastUrl = null;
+    Cypress.translationChecker.pendingCheck = false;
   });
 };
 

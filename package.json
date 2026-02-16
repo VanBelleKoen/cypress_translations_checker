@@ -35,8 +35,9 @@
   },
   "homepage": "https://github.com/VanBelleKoen/cypress_translations_checker#readme",
   "author": "Koen Van Belle <vanbelle.koen@gmail.com>",
+  "license": "MIT",
   "peerDependencies": {
-    "cypress": "12.0.0"
+    "cypress": ">=12.0.0"
   },
   "devDependencies": {
     "cypress": "^13.0.0"

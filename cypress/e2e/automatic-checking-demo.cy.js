@@ -78,22 +78,3 @@ describe('Functional Tests - Clean Page', () => {
   });
 });
 
-/**
- * After all these functional tests complete, check the test results.
- * You'll see a separate test suite called:
- * 
- * "🔍 Automatic Translation Validation"
- * 
- * That test will:
- * - Visit all pages that were visited in the tests above
- * - Check each one for translation issues
- * - Fail if any issues are found
- * - But your functional tests above will still show their own pass/fail status
- * 
- * This way, you can see:
- * ✓ Homepage tests - passed
- * ✓ Dashboard tests - passed
- * ✓ Navigation tests - passed
- * ✓ Clean page tests - passed
- * ✗ Translation Validation - failed (3 pages with issues)
- */

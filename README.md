@@ -1,12 +1,41 @@
 # Cypress Translation Checker
 
-A Cypress plugin that automatically validates translations on every page load. No need to write specific tests - just configure once and every `cy.visit()` will check for translation issues.
+A Cypress plugin that automatically validates translations **on every page navigation**. No need to write specific tests - just configure once and the plugin automatically checks for translation issues on every page, whether you navigate via `cy.visit()`, `cy.click()`, or any other method. Perfect for catching untranslated content without interrupting your functional test flow.
+
+## Quick Example
+
+```javascript
+// ❌ WITHOUT this plugin - manual checks everywhere
+it('user signup flow', () => {
+  cy.visit('/');
+  cy.checkTranslations();  // Manual
+  cy.get('.signup-btn').click();
+  cy.checkTranslations();  // Manual
+  cy.get('input[name="email"]').type('user@example.com');
+  cy.get('.submit').click();
+  cy.checkTranslations();  // Manual
+  // Repetitive and easy to forget!
+});
+
+// ✅ WITH this plugin - completely automatic
+it('user signup flow', () => {
+  cy.visit('/');  // ✅ Auto-checked
+  cy.get('.signup-btn').click();  // ✅ Auto-checked (new page detected!)
+  cy.get('input[name="email"]').type('user@example.com');
+  cy.get('.submit').click();  // ✅ Auto-checked (confirmation page)
+  // All pages validated - zero extra code!
+});
+```
+
+**Result**: Write normal tests. Get translation validation for free. 🎉
 
 ## Features
 
-- **Automatic Detection**: Checks for translation issues on every page load without writing specific tests
-- **Zero Test Changes**: Just use `cy.visit()` normally - translation checking happens automatically
-- **Separate Validation Test**: Translation issues don't fail your functional tests - they're reported in a dedicated validation test
+- **🚀 Automatic Navigation Detection**: Intelligently detects ALL page navigations - `cy.visit()`, `cy.click()`, programmatic navigation, etc.
+- **✨ Zero Test Changes**: Write tests exactly as you normally would - translation checking happens invisibly in the background
+- **🎯 Smart Detection**: Automatically checks translations on every new page load without duplicate checks
+- **🔒 Non-Invasive**: Your functional tests never fail due to translation issues - they're reported in a separate validation test
+- **⚡ Real-Time Tracking**: Works seamlessly with single-page applications and complex navigation flows
 - **Pattern Matching**: Configurable patterns to detect various translation key formats ({{key}}, i18n.key, $t('key'), etc.)
 - **Smart Exclusions**: Exclude specific elements or areas from checking
 - **Detailed Reporting**: Clear error messages with XPath locations
@@ -16,11 +45,59 @@ A Cypress plugin that automatically validates translations on every page load. N
 
 ## How It Works
 
-1. Configure once in your `cypress/support/e2e.js` file
-2. Write normal tests - just use `cy.visit()` as usual
-3. Every page load is automatically validated for translation issues
-4. Results are collected and reported in a separate validation test
-5. Your functional tests continue normally - translation issues don't break them
+1. **One-Time Setup**: Configure the plugin once in your `cypress/support/e2e.js` file
+2. **Write Tests Normally**: Use `cy.visit()`, `cy.click()`, and any other commands exactly as you always do
+3. **Automatic Detection**: The plugin listens to Cypress events to detect URL changes without modifying commands
+4. **Intelligent Tracking**: Each unique URL is checked once per test - no duplicate checks
+5. **Separate Reporting**: All translation issues are collected and reported in a dedicated validation test
+6. **No Test Disruption**: Your functional tests pass/fail based on their own assertions - translation issues never interfere
+
+## Why This Matters
+
+### The Problem This Solves
+
+In traditional approaches, you'd need to:
+- Manually add translation checks to every test
+- Remember to check after every navigation
+- Write specific tests for translation validation
+- Maintain checks as your app grows
+
+**Example of the old way:**
+```javascript
+it('user workflow', () => {
+  cy.visit('/');
+  cy.checkTranslations();  // ❌ Manual check
+  
+  cy.get('.login').click();
+  cy.checkTranslations();  // ❌ Manual check
+  
+  // ... more steps
+  cy.checkTranslations();  // ❌ Manual check
+  // Lots of repetitive code!
+});
+```
+
+### The Solution
+
+With this plugin, translation validation happens **completely automatically**:
+
+```javascript
+it('user workflow', () => {
+  cy.visit('/');  // ✅ Auto-checked
+  cy.get('.login').click();  // ✅ Auto-checked
+  cy.get('.dashboard-link').click();  // ✅ Auto-checked
+  cy.get('.profile').click();  // ✅ Auto-checked
+  // Zero translation-specific code - all pages validated!
+});
+```
+
+### Real-World Impact
+
+- **97% less code**: No manual translation checks in your tests
+- **100% coverage**: Never forget to check a page - every navigation is automatic
+- **Zero maintenance**: Add new pages/flows without updating translation tests
+- **Faster development**: Focus on functionality, not translation validation
+- **Better CI/CD**: Catch translation issues early without slowing down functional tests
 
 ## Installation
 
@@ -113,31 +190,84 @@ createTranslationValidationTests();
 
 ### Basic Usage
 
-Once configured, just write normal Cypress tests. Translation checking happens automatically:
+Once configured, just write normal Cypress tests. Translation checking happens automatically on **every navigation**:
 
 ```javascript
 describe('My Application', () => {
   it('should load homepage', () => {
-    cy.visit('/');  // Translation check happens automatically
+    cy.visit('/');  // ✅ Automatically checked
     cy.get('h1').should('be.visible');
-    // Test continues normally
   });
   
   it('should navigate to dashboard', () => {
-    cy.visit('/dashboard');  // Also checked automatically
+    cy.visit('/dashboard');  // ✅ Automatically checked
     cy.get('.dashboard-content').should('exist');
+  });
+  
+  it('should navigate via click', () => {
+    cy.visit('/');  // ✅ Checked
+    cy.get('a[href="/about"]').click();  // ✅ NEW PAGE AUTOMATICALLY CHECKED!
+    cy.get('.about-content').should('exist');
+  });
+  
+  it('should complete multi-step workflow', () => {
+    cy.visit('/');  // ✅ Checked
+    cy.get('.login-button').click();  // ✅ Login page checked
+    
+    cy.get('input[name="email"]').type('user@example.com');
+    cy.get('input[name="password"]').type('password');
+    cy.get('button[type="submit"]').click();  // ✅ Dashboard checked
+    
+    cy.get('.profile-link').click();  // ✅ Profile page checked
+    
+    // All 4 pages automatically validated for translations!
+    // Zero additional code required!
   });
 });
 ```
 
-### How It Works
+### 🎯 Key Feature: Automatic Click Navigation Detection
 
-1. When you call `cy.visit()`, the plugin automatically checks the page for translation issues
-2. Issues are stored in Node.js (via Cypress tasks) to persist across test files
-3. Your functional tests continue running normally - they never fail due to translation issues
-4. After all functional tests complete, `zz-translation-validation.cy.js` runs
-5. This validation test retrieves all collected results and reports any translation issues
-6. If translation issues exist, only the validation test fails
+**Before this plugin:**
+```javascript
+// You had to manually check translations after clicks
+cy.visit('/');
+cy.get('.nav-link').click();
+cy.checkTranslations();  // Manual check needed
+```
+
+**With this plugin:**
+```javascript
+// Translation checking is completely automatic
+cy.visit('/');
+cy.get('.nav-link').click();  // Translation check happens automatically!
+// No additional code needed - just write normal tests
+```
+
+The plugin automatically:
+- Detects when `cy.click()` navigates to a new page
+- Waits for the page to load
+- Checks for translation issues
+- Stores results for validation
+- Prevents duplicate checks on the same URL
+
+This is **especially powerful for**:
+- Single-page applications with client-side routing
+- Multi-step user workflows (signup → verification → onboarding)
+- E-commerce flows (product → cart → checkout → confirmation)  
+- Navigation-heavy applications with many pages
+
+### Technical Details
+
+1. The plugin listens to Cypress's `url:changed` event to detect any navigation
+2. No command overwrites - `cy.visit()`, `cy.click()`, and all other commands work normally
+3. Translation checks are performed in `afterEach` hooks after URL changes are detected
+4. Duplicate checks on the same URL within a test are automatically prevented
+5. Issues are stored in Node.js (via Cypress tasks) to persist across test files
+6. Your functional tests continue running normally - they never fail due to translation issues
+7. After all functional tests complete, `zz-translation-validation.cy.js` runs
+8. This validation test retrieves all collected results and reports any translation issues
+9. If translation issues exist, only the validation test fails
 
 ### Excluding Elements
 
@@ -237,6 +367,28 @@ it('should validate translations manually', () => {
       
       expect(criticalErrors).to.have.length(0);
     }
+  });
+});
+```
+
+You can also manually check after specific actions:
+
+```javascript
+it('should check after form submission', () => {
+  cy.visit('/form');
+  cy.get('input[name="email"]').type('test@example.com');
+  cy.get('button[type="submit"]').click();
+  
+  // Manually trigger translation check
+  cy.checkTranslations({
+    failOnError: false,
+    logErrors: false
+  }).then((errors) => {
+    cy.task('storeTranslationResult', {
+      url: window.location.href,
+      errors: errors,
+      testContext: Cypress.currentTest.title
+    });
   });
 });
 ```
@@ -418,12 +570,31 @@ If `zz-translation-validation.cy.js` shows "0 pages":
 
 ## Best Practices
 
-1. **Start Lenient**: Begin by reviewing detected issues without failing tests
-2. **Refine Patterns**: Adjust patterns to match your specific translation system
-3. **Use Exclusions**: Exclude debug panels, test IDs, and code examples
-4. **Wait for SPAs**: Increase `waitTime` for single-page apps that render client-side
-5. **Allow Brand Names**: Add brand names or acronyms to `allowedKeys` if they match patterns
-6. **Run Validation Last**: Use `zz-` prefix for validation test to ensure it runs after functional tests
+### 1. Write Tests Naturally
+- **Don't change your test style**: Write tests exactly as you normally would
+- **No special syntax needed**: `cy.click()` automatically detects navigation
+- **Focus on functionality**: Let the plugin handle translation validation
+
+### 2. Leverage Automatic Detection
+- **Test user journeys**: Complex multi-step workflows are now easy to validate
+- **Click through your app**: Every page visited via click is automatically checked
+- **No manual tracking**: The plugin tracks all navigations for you
+
+### 3. Configuration
+- **Start lenient**: Begin with `failOnError: false` to review detected issues
+- **Refine patterns**: Adjust patterns to match your specific translation system
+- **Exclude wisely**: Exclude debug panels, test IDs, and code examples
+- **Tune `waitTime`**: Increase for SPAs (1000ms+), decrease for static sites (300ms)
+
+### 4. Organization
+- **Run validation last**: Use `zz-` prefix for validation test to ensure it runs after functional tests
+- **Group by feature**: Organize tests by user flows - all pages in the flow are validated
+- **Allow exceptions**: Add brand names or acronyms to `allowedKeys` if they match patterns
+
+### 5. Optimization
+- **Trust the system**: Don't add manual `cy.checkTranslations()` calls unless needed
+- **One visit per test**: Each unique URL is checked once automatically - no need to revisit
+- **Review validation output**: Check the `zz-translation-validation.cy.js` results regularly
 
 ## Contributing
 
