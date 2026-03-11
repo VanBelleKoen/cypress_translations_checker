@@ -4,6 +4,83 @@
 
 const { defaultConfig } = require('./index');
 
+const normalizeTextForDisplay = (text) => {
+  if (!text) return '';
+  return String(text).replace(/\s+/g, ' ').trim();
+};
+
+const truncateForTable = (text, maxLength = 80) => {
+  const normalized = normalizeTextForDisplay(text);
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 3)}...`;
+};
+
+const formatIssueTable = (errors, maxIssues = 5, context = {}) => {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return 'No table data available';
+  }
+
+  const shownIssues = errors.slice(0, maxIssues);
+  const rows = shownIssues.map((error) => ({
+    url: context.url || 'N/A',
+    missingTranslation: truncateForTable(error.text)
+  }));
+
+  const urlHeader = 'URL';
+  const translationHeader = 'Missing translation';
+  const urlWidth = Math.max(urlHeader.length, ...rows.map(row => row.url.length));
+
+  const lines = [
+    `${urlHeader.padEnd(urlWidth)} | ${translationHeader}`,
+    `${'-'.repeat(urlWidth)}-|-${'-'.repeat(translationHeader.length)}`
+  ];
+
+  rows.forEach((row) => {
+    lines.push(`${row.url.padEnd(urlWidth)} | ${row.missingTranslation}`);
+  });
+
+  const remaining = errors.length - maxIssues;
+  if (remaining > 0) {
+    lines.push(`...and ${remaining} more issue(s)`);
+  }
+
+  if (context.testContext) {
+    lines.push(`Test context: "${context.testContext}"`);
+  }
+
+  return lines.join('\n');
+};
+
+const formatIssueDetails = (errors, maxIssues = 3, context = {}) => {
+  if (!Array.isArray(errors) || errors.length === 0) {
+    return 'No issue details available';
+  }
+
+  const shownIssues = errors.slice(0, maxIssues).map((error, index) => {
+    const attributePart = error.attribute ? ` [${error.attribute}]` : '';
+    const contextParts = [];
+
+    if (context.url) {
+      contextParts.push(`url: ${context.url}`);
+    }
+
+    if (context.testContext) {
+      contextParts.push(`test: "${context.testContext}"`);
+    }
+
+    const contextSuffix = contextParts.length > 0 ? ` (${contextParts.join(', ')})` : '';
+
+    return `${index + 1}) ${error.type.toUpperCase()}${attributePart} in <${error.element}> at ${error.xpath}: "${error.text}"${contextSuffix}`;
+  });
+
+  const remaining = errors.length - maxIssues;
+  if (remaining > 0) {
+    shownIssues.push(`...and ${remaining} more issue(s)`);
+  }
+
+  return shownIssues.join('\n');
+};
+
 /**
  * Checks for translation issues in the current page
  * @param {Object} options - Configuration options (overrides default config)
@@ -131,7 +208,8 @@ Cypress.Commands.add('checkTranslations', (options = {}) => {
     if (config.failOnError && errors.length > 0) {
       throw new Error(
         `Found ${errors.length} translation issue(s) on the page. ` +
-        `Check console for details.`
+        `Failing translations:\n\n${formatIssueTable(errors, 5, { url: win.location.href })}\n\n` +
+        `Details:\n${formatIssueDetails(errors, 3, { url: win.location.href })}`
       );
     }
 
@@ -289,7 +367,14 @@ export const createTranslationValidationTests = () => {
 
             throw new Error(
               `Translation validation failed for ${result.url}\n` +
-              `Found ${errorCount} issue(s). See console output above for details.`
+              `Found ${errorCount} issue(s). Failing translations:\n\n${formatIssueTable(result.errors, 5, {
+                url: result.url,
+                testContext: result.testContext
+              })}\n\n` +
+              `Details:\n${formatIssueDetails(result.errors, 3, {
+                url: result.url,
+                testContext: result.testContext
+              })}`
             );
           }
         });
