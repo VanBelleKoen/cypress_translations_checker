@@ -12,6 +12,7 @@ module.exports = {
    * @param {boolean} config.failOnError - Whether to fail the test on translation errors (default: true)
    * @param {boolean} config.logErrors - Whether to log errors to console (default: true)
    * @param {Array<string>} config.allowedKeys - Specific translation keys that are allowed to show
+  * @param {boolean} config.highlightInInspector - Whether to visually highlight elements with issues in the browser (default: true)
    */
   defaultConfig: {
     patterns: [
@@ -31,6 +32,7 @@ module.exports = {
     ],
     failOnError: true,
     logErrors: true,
+    highlightInInspector: true,
     allowedKeys: [],
     checkAttributes: ['placeholder', 'title', 'alt', 'aria-label'],
   }

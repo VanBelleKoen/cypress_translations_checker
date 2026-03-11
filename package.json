@@ -1,6 +1,6 @@
 {
   "name": "cypress-translation-checker",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Automatically validate translations in Cypress tests without writing specific test cases",
   "main": "index.js",
   "files": [

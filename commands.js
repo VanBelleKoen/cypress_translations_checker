@@ -15,6 +15,12 @@ const truncateForTable = (text, maxLength = 80) => {
   return `${normalized.slice(0, maxLength - 3)}...`;
 };
 
+const truncateForLog = (text, maxLength = 120) => {
+  const normalized = normalizeTextForDisplay(text);
+  if (normalized.length <= maxLength) return normalized;
+  return `${normalized.slice(0, maxLength - 3)}...`;
+};
+
 const formatIssueTable = (errors, maxIssues, context = {}) => {
   if (!Array.isArray(errors) || errors.length === 0) {
     return 'No table data available';
@@ -24,20 +30,23 @@ const formatIssueTable = (errors, maxIssues, context = {}) => {
   const shownIssues = errors.slice(0, limit);
   const rows = shownIssues.map((error) => ({
     url: context.url || 'N/A',
+    selector: error.selector || error.xpath || 'N/A',
     missingTranslation: truncateForTable(error.text)
   }));
 
   const urlHeader = 'URL';
+  const selectorHeader = 'Selector';
   const translationHeader = 'Missing translation';
   const urlWidth = Math.max(urlHeader.length, ...rows.map(row => row.url.length));
+  const selectorWidth = Math.max(selectorHeader.length, ...rows.map(row => row.selector.length));
 
   const lines = [
-    `${urlHeader.padEnd(urlWidth)} | ${translationHeader}`,
-    `${'-'.repeat(urlWidth)}-|-${'-'.repeat(translationHeader.length)}`
+    `${urlHeader.padEnd(urlWidth)} | ${selectorHeader.padEnd(selectorWidth)} | ${translationHeader}`,
+    `${'-'.repeat(urlWidth)}-|-${'-'.repeat(selectorWidth)}-|-${'-'.repeat(translationHeader.length)}`
   ];
 
   rows.forEach((row) => {
-    lines.push(`${row.url.padEnd(urlWidth)} | ${row.missingTranslation}`);
+    lines.push(`${row.url.padEnd(urlWidth)} | ${row.selector.padEnd(selectorWidth)} | ${row.missingTranslation}`);
   });
 
   const remaining = errors.length - limit;
@@ -73,7 +82,8 @@ const formatIssueDetails = (errors, maxIssues, context = {}) => {
 
     const contextSuffix = contextParts.length > 0 ? ` (${contextParts.join(', ')})` : '';
 
-    return `${index + 1}) ${error.type.toUpperCase()}${attributePart} in <${error.element}> at ${error.xpath}: "${error.text}"${contextSuffix}`;
+    const selectorPart = error.selector ? ` selector: ${error.selector}` : ` xpath: ${error.xpath}`;
+    return `${index + 1}) ${error.type.toUpperCase()}${attributePart} in <${error.element}> (${selectorPart}): "${error.text}"${contextSuffix}`;
   });
 
   const remaining = errors.length - limit;
@@ -94,6 +104,54 @@ Cypress.Commands.add('checkTranslations', (options = {}) => {
   cy.window().then((win) => {
     const doc = win.document;
     const errors = [];
+
+    const getCssSelector = (element) => {
+      if (!element || element.nodeType !== Node.ELEMENT_NODE) {
+        return '';
+      }
+
+      if (element.id) {
+        return `#${element.id}`;
+      }
+
+      const parts = [];
+      let current = element;
+
+      while (current && current.nodeType === Node.ELEMENT_NODE && current !== doc.body) {
+        let part = current.tagName.toLowerCase();
+
+        if (current.classList && current.classList.length > 0) {
+          part += `.${Array.from(current.classList).slice(0, 2).join('.')}`;
+        }
+
+        const siblingsWithSameTag = current.parentElement
+          ? Array.from(current.parentElement.children).filter((child) => child.tagName === current.tagName)
+          : [];
+
+        if (siblingsWithSameTag.length > 1) {
+          const index = siblingsWithSameTag.indexOf(current) + 1;
+          part += `:nth-of-type(${index})`;
+        }
+
+        parts.unshift(part);
+        current = current.parentElement;
+      }
+
+      return `body > ${parts.join(' > ')}`;
+    };
+
+    const highlightElement = (element) => {
+      if (!config.highlightInInspector || !element || element.nodeType !== Node.ELEMENT_NODE) {
+        return;
+      }
+
+      const currentCount = Number(element.getAttribute('data-translation-issue-count') || '0');
+      element.setAttribute('data-translation-issue', 'true');
+      element.setAttribute('data-translation-issue-count', String(currentCount + 1));
+      element.style.setProperty('outline', '2px solid #e11d48');
+      element.style.setProperty('outline-offset', '2px');
+      element.style.setProperty('background-color', 'rgba(225, 29, 72, 0.08)');
+    };
 
     // Function to check if text matches any translation pattern
     const hasTranslationIssue = (text) => {
@@ -127,10 +185,12 @@ Cypress.Commands.add('checkTranslations', (options = {}) => {
         if (text && hasTranslationIssue(text)) {
           const element = node.parentElement;
           if (element && !shouldExclude(element)) {
+            highlightElement(element);
             errors.push({
               type: 'text',
               text: text,
               element: element.tagName,
+              selector: getCssSelector(element),
               xpath: getXPath(element)
             });
           }
@@ -141,11 +201,13 @@ Cypress.Commands.add('checkTranslations', (options = {}) => {
           const value = node.getAttribute(attr);
           if (value && hasTranslationIssue(value)) {
             if (!shouldExclude(node)) {
+              highlightElement(node);
               errors.push({
                 type: 'attribute',
                 attribute: attr,
                 text: value,
                 element: node.tagName,
+                selector: getCssSelector(node),
                 xpath: getXPath(node)
               });
             }
@@ -258,6 +320,19 @@ export const enableAutoTranslationCheck = (globalOptions = {}) => {
     }).then((errors) => {
       const errorCount = errors.length;
       cy.log(`Found ${errorCount} translation issues`);
+
+      if (errorCount > 0) {
+        errors.forEach((error, index) => {
+          const selector = error.selector || error.xpath || '<unknown selector>';
+          cy.log(`❌ ${index + 1}/${errorCount}: ${truncateForLog(error.text)} | ${selector}`);
+          console.error(`Translation issue ${index + 1}/${errorCount}`);
+          console.error(`  Missing translation: "${error.text}"`);
+          console.error(`  Selector: ${selector}`);
+          if (error.attribute) {
+            console.error(`  Attribute: ${error.attribute}`);
+          }
+        });
+      }
 
       // Store in Node.js via task (persists across spec files)
       cy.task('storeTranslationResult', {

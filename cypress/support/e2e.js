@@ -43,5 +43,5 @@ enableAutoTranslationCheck({
   allowedKeys: [],
 
   // Attributes to check for translation issues
-  checkAttributes: ['placeholder', 'title', 'alt', 'aria-label']
+  checkAttributes: ['placeholder', 'title', 'alt', 'aria-label', 'span', 'label']
 });
