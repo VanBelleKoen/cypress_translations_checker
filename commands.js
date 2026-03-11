@@ -15,12 +15,13 @@ const truncateForTable = (text, maxLength = 80) => {
   return `${normalized.slice(0, maxLength - 3)}...`;
 };
 
-const formatIssueTable = (errors, maxIssues = 5, context = {}) => {
+const formatIssueTable = (errors, maxIssues, context = {}) => {
   if (!Array.isArray(errors) || errors.length === 0) {
     return 'No table data available';
   }
 
-  const shownIssues = errors.slice(0, maxIssues);
+  const limit = Number.isInteger(maxIssues) && maxIssues > 0 ? maxIssues : errors.length;
+  const shownIssues = errors.slice(0, limit);
   const rows = shownIssues.map((error) => ({
     url: context.url || 'N/A',
     missingTranslation: truncateForTable(error.text)
@@ -39,7 +40,7 @@ const formatIssueTable = (errors, maxIssues = 5, context = {}) => {
     lines.push(`${row.url.padEnd(urlWidth)} | ${row.missingTranslation}`);
   });
 
-  const remaining = errors.length - maxIssues;
+  const remaining = errors.length - limit;
   if (remaining > 0) {
     lines.push(`...and ${remaining} more issue(s)`);
   }
@@ -51,12 +52,14 @@ const formatIssueTable = (errors, maxIssues = 5, context = {}) => {
   return lines.join('\n');
 };
 
-const formatIssueDetails = (errors, maxIssues = 3, context = {}) => {
+const formatIssueDetails = (errors, maxIssues, context = {}) => {
   if (!Array.isArray(errors) || errors.length === 0) {
     return 'No issue details available';
   }
 
-  const shownIssues = errors.slice(0, maxIssues).map((error, index) => {
+  const limit = Number.isInteger(maxIssues) && maxIssues > 0 ? maxIssues : errors.length;
+
+  const shownIssues = errors.slice(0, limit).map((error, index) => {
     const attributePart = error.attribute ? ` [${error.attribute}]` : '';
     const contextParts = [];
 
@@ -73,7 +76,7 @@ const formatIssueDetails = (errors, maxIssues = 3, context = {}) => {
     return `${index + 1}) ${error.type.toUpperCase()}${attributePart} in <${error.element}> at ${error.xpath}: "${error.text}"${contextSuffix}`;
   });
 
-  const remaining = errors.length - maxIssues;
+  const remaining = errors.length - limit;
   if (remaining > 0) {
     shownIssues.push(`...and ${remaining} more issue(s)`);
   }
@@ -208,8 +211,8 @@ Cypress.Commands.add('checkTranslations', (options = {}) => {
     if (config.failOnError && errors.length > 0) {
       throw new Error(
         `Found ${errors.length} translation issue(s) on the page. ` +
-        `Failing translations:\n\n${formatIssueTable(errors, 5, { url: win.location.href })}\n\n` +
-        `Details:\n${formatIssueDetails(errors, 3, { url: win.location.href })}`
+        `Failing translations:\n\n${formatIssueTable(errors, undefined, { url: win.location.href })}\n\n` +
+        `Details:\n${formatIssueDetails(errors, undefined, { url: win.location.href })}`
       );
     }
 
@@ -367,11 +370,11 @@ export const createTranslationValidationTests = () => {
 
             throw new Error(
               `Translation validation failed for ${result.url}\n` +
-              `Found ${errorCount} issue(s). Failing translations:\n\n${formatIssueTable(result.errors, 5, {
+              `Found ${errorCount} issue(s). Failing translations:\n\n${formatIssueTable(result.errors, undefined, {
                 url: result.url,
                 testContext: result.testContext
               })}\n\n` +
-              `Details:\n${formatIssueDetails(result.errors, 3, {
+              `Details:\n${formatIssueDetails(result.errors, undefined, {
                 url: result.url,
                 testContext: result.testContext
               })}`
