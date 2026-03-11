@@ -22,6 +22,7 @@ enableAutoTranslationCheck({
     /i18n\./,                // i18n.key
     /^[A-Z_]+\.[A-Z_]+/,     // NAMESPACE.KEY
     /\$t\(.*?\)/,            // $t('key')
+    /^[a-z]+\.[a-z]+\.[aA-z]+\.[a-z]+\.[A-Z_]+$/,
   ],
 
   // Elements to exclude from checking

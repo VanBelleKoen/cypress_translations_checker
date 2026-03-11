@@ -15,11 +15,12 @@ module.exports = {
    */
   defaultConfig: {
     patterns: [
-      /\{\{.*?\}\}/,           // Matches {{key}} or {{namespace.key}}
-      /\[\[.*?\]\]/,           // Matches [[key]]
-      /i18n\./,                // Matches i18n.key
-      /^[A-Z_]+\.[A-Z_]+/,     // Matches NAMESPACE.KEY
-      /\$t\(.*?\)/,            // Matches $t('key')
+      /\{\{.*?\}\}/,                              // Matches {{key}} or {{namespace.key}}
+      /\[\[.*?\]\]/,                              // Matches [[key]]
+      /i18n\./,                                   // Matches i18n.key
+      /^[A-Z_]+\.[A-Z_]+/,                        // Matches NAMESPACE.KEY
+      /\$t\(.*?\)/,                               // Matches $t('key')
+      /[a-z][a-zA-Z]*(\.[a-zA-Z]+)*\.[A-Z]{2,}/, // Matches dwse.global.foo.GEANNULEERD
     ],
     excludeSelectors: [
       'script',
