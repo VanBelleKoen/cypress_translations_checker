@@ -424,39 +424,41 @@ export const createTranslationValidationTests = () => {
         return;
       }
 
-      pageResults.forEach((result) => {
-        const errorCount = result.errors.length;
+      const pagesWithErrors = pageResults.filter((result) => result.errors.length > 0);
+      if (pagesWithErrors.length === 0) {
+        return;
+      }
 
-        // Create a clear assertion for each page
-        cy.wrap(null).then(() => {
-          if (errorCount > 0) {
-            console.error(`\n=== Translation Issues on ${result.url} ===`);
-            console.error(`Test context: "${result.testContext}"`);
-            console.error(`Total issues: ${errorCount}\n`);
+      pagesWithErrors.forEach((result) => {
+        console.error(`\n=== Translation Issues on ${result.url} ===`);
+        console.error(`Test context: "${result.testContext}"`);
+        console.error(`Total issues: ${result.errors.length}\n`);
 
-            result.errors.forEach((error, index) => {
-              console.error(`${index + 1}. ${error.type.toUpperCase()}: "${error.text}"`);
-              console.error(`   Element: <${error.element}>`);
-              if (error.attribute) {
-                console.error(`   Attribute: ${error.attribute}`);
-              }
-              console.error(`   XPath: ${error.xpath}\n`);
-            });
-
-            throw new Error(
-              `Translation validation failed for ${result.url}\n` +
-              `Found ${errorCount} issue(s). Failing translations:\n\n${formatIssueTable(result.errors, undefined, {
-                url: result.url,
-                testContext: result.testContext
-              })}\n\n` +
-              `Details:\n${formatIssueDetails(result.errors, undefined, {
-                url: result.url,
-                testContext: result.testContext
-              })}`
-            );
+        result.errors.forEach((error, index) => {
+          console.error(`${index + 1}. ${error.type.toUpperCase()}: "${error.text}"`);
+          console.error(`   Element: <${error.element}>`);
+          if (error.attribute) {
+            console.error(`   Attribute: ${error.attribute}`);
           }
+          console.error(`   XPath: ${error.xpath}\n`);
         });
       });
+
+      const perPageFailures = pagesWithErrors.map((result) => {
+        return (
+          `Translation validation failed for ${result.url}\n` +
+          `Found ${result.errors.length} issue(s). Failing translations:\n\n${formatIssueTable(result.errors, undefined, {
+            url: result.url,
+            testContext: result.testContext
+          })}\n\n` +
+          `Details:\n${formatIssueDetails(result.errors, undefined, {
+            url: result.url,
+            testContext: result.testContext
+          })}`
+        );
+      });
+
+      throw new Error(perPageFailures.join('\n\n---\n\n'));
     });
   });
 };

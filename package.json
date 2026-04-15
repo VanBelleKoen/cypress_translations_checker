@@ -1,6 +1,6 @@
 {
   "name": "cypress-translation-checker",
-  "version": "1.2.3",
+  "version": "1.3.3",
   "description": "Automatically validate translations in Cypress tests without writing specific test cases",
   "main": "index.js",
   "files": [
@@ -11,7 +11,8 @@
     "CHANGELOG.md"
   ],
   "scripts": {
-    "test": "cypress run"
+    "test": "cypress run",
+    "test:interplay": "cypress run --spec cypress/e2e/soft-assertions-interplay.cy.js"
   },
   "keywords": [
     "cypress",
@@ -40,6 +41,7 @@
     "cypress": ">=12.0.0"
   },
   "devDependencies": {
+    "@koenvanbelle/cypress-soft-assertions": "^1.0.9",
     "cypress": "^13.0.0"
   },
   "engines": {
